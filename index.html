@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title> Floor 5 Room Booking </title>
+        <style>
+            body {
+              font-family: -apple-system, Helvetica, Arial, sans-serif;
+              background-color: #111111;
+              color: #FFFFFF;
+              margin: 40px;
+            }
+            h1, h2 {
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: normal;
+    }
+
+    h1 {
+      font-size: 30px;
+      font-weight: bold;
+    }
+    .details {
+      text-transform: uppercase;
+      font-weight: bold;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+    .logo {
+      width: 120px;
+    }
+
+    .rooms {
+      display: flex;
+      gap: 32px;
+    }
+
+    .room {
+      flex: 1;
+      border: 1px solid #FFFFFF;
+      padding: 24px;
+    }
+    .slots {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 16px;
+    }
+
+    .slots button {
+      background-color: transparent;
+      color: #FFFFFF;
+      border: 1px solid #555555;
+      padding: 8px 0;
+      font-family: inherit;
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+    }
+
+    .slots button:hover {
+      border-color: #FFFFFF;
+    }
+
+    .slots button.held {
+      background-color: #FFFFFF;
+      color: #111111;
+      cursor: default;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 8px 4px;
+    }
+
+    .slots button.held.mine {
+      cursor: pointer;
+    }
+
+    .slots button.held.mine:hover {
+      background-color: transparent;
+      color: #FFFFFF;
+      border-color: #FFFFFF;
+    }
+
+    .date-picker {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0 24px;
+    }
+
+    .date-picker input {
+      background-color: transparent;
+      color: #FFFFFF;
+      border: 1px solid #555555;
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      color-scheme: dark;
+    }
+          </style>
+      </head>
+      <body>
+        <img src="xf-logo.png" alt="XF Entrepreneurs First" class="logo">
+
+
+        <h1>Floor 5 Room Booking</h1>
+        <p>Choose a room to schedule your slot.</p>
+         
+        <div class="date-picker">
+            <label for="date" class="details">Date</label>
+            <input type="date" id="date">
+          </div>
+
+      <div class="rooms">
+
+        <section class="room">
+          <h2>Room 1</h2>
+          <p class="details">Seats 4.</p>
+          <div class="slots" id="slots-room-1"></div>
+        </section>
+
+        <section class="room">
+          <h2>Room 2</h2>
+          <p class="details">Seats 4.</p>
+          <div class="slots" id="slots-room-2"></div>
+        </section>
+
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+      <script>
+            const SUPABASE_URL = "https://uiduqlapzlmragznekpu.supabase.co";
+      const SUPABASE_KEY = "sb_publishable_wfHG1wo0ooTL9sTT00rAhA_rtxFjo4Q";
+      const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      const rooms = ["room-1", "room-2"];
+      const dateInput = document.getElementById("date");
+
+      const today = new Date().toLocaleDateString("en-CA");
+      dateInput.value = today;
+      dateInput.min = today;
+
+      function loadMyCodes() {
+        return JSON.parse(localStorage.getItem("my-bookings") || "{}");
+      }
+
+      function saveMyCodes(codes) {
+        localStorage.setItem("my-bookings", JSON.stringify(codes));
+      }
+
+      async function showSlots() {
+        const { data: bookings, error } = await db
+          .from("bookings")
+          .select("room, date, time, name")
+          .eq("date", dateInput.value);
+
+        if (error) {
+          alert("Couldn't load bookings: " + error.message);
+          return;
+        }
+
+        const myCodes = loadMyCodes();
+
+        for (const room of rooms) {
+          const container = document.getElementById("slots-" + room);
+          container.replaceChildren();
+
+          for (let hour = 0; hour < 24; hour++) {
+            for (const minutes of ["00", "30"]) {
+              const time = String(hour).padStart(2, "0") + ":" + minutes;
+              const key = room + "|" + dateInput.value + "|" + time;
+
+              const button = document.createElement("button");
+              button.textContent = time;
+
+              const booking = bookings.find(b => b.room === room && b.time === time);
+
+              if (booking && myCodes[key]) {
+                button.textContent = time + " " + booking.name + " (yours)";
+                button.classList.add("held", "mine");
+
+                button.addEventListener("click", async function () {
+                  const sure = confirm("Cancel your hold at " + time + " on " + dateInput.value + "?");
+
+                  if (!sure) {
+                    return;
+                  }
+
+                  const { data: cancelled, error } = await db.rpc("cancel_booking", {
+                    p_room: room,
+                    p_date: dateInput.value,
+                    p_time: time,
+                    p_code: myCodes[key]
+                  });
+
+                  if (error) {
+                    alert("Couldn't cancel: " + error.message);
+                  } else {
+                    if (!cancelled) {
+                      alert("This hold had already been removed.");
+                    }
+                    const codes = loadMyCodes();
+                    delete codes[key];
+                    saveMyCodes(codes);
+                  }
+
+                  showSlots();
+                });
+
+              } else if (booking) {
+                button.textContent = time + " " + booking.name;
+                button.classList.add("held");
+                button.disabled = true;
+
+              } else {
+                button.addEventListener("click", async function () {
+                  const name = prompt("Your name, to hold " + time + " on " + dateInput.value + ":");
+
+                  if (!name) {
+                    return;
+                  }
+
+                  const code = crypto.randomUUID();
+
+                  const { error } = await db.from("bookings").insert({
+                    room: room,
+                    date: dateInput.value,
+                    time: time,
+                    name: name,
+                    cancel_code: code
+                  });
+
+                  if (error && error.code === "23505") {
+                    alert("Someone has just held this slot. Please pick another.");
+                  } else if (error) {
+                    alert("Couldn't hold this slot: " + error.message);
+                  } else {
+                    const codes = loadMyCodes();
+                    codes[key] = code;
+                    saveMyCodes(codes);
+                  }
+
+                  showSlots();
+                });
+              }
+
+              container.appendChild(button);
+            }
+          }
+        }
+      }
+
+      showSlots();
+      dateInput.addEventListener("change", showSlots);
+
+      </script>
+
+    </body>
+
+</html>
