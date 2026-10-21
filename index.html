@@ -40,6 +40,35 @@
       border: 1px solid #FFFFFF;
       padding: 24px;
     }
+
+    .room-title {
+      position: relative;
+      display: inline-block;
+      cursor: help;
+      border-bottom: 1px dotted #555555;
+    }
+
+    .location {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 1;
+      margin-top: 8px;
+      width: max-content;
+      max-width: 280px;
+      background-color: #111111;
+      border: 1px solid #FFFFFF;
+      padding: 12px;
+      font-family: -apple-system, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .room-title:hover .location,
+    .room-title:focus .location {
+      display: block;
+    }
     .slots {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -115,13 +144,17 @@
       <div class="rooms">
 
         <section class="room">
-          <h2>Room 1: 5.111</h2>
+          <h2 class="room-title" tabindex="0">Room 1: 5.111
+            <span class="location" role="tooltip">5th floor, next to XF desks</span>
+          </h2>
           <p class="details">Seats 4.</p>
           <div class="slots" id="slots-room-1"></div>
         </section>
 
         <section class="room">
-          <h2>Room 2: 3H</h2>
+          <h2 class="room-title" tabindex="0">Room 2: 3H
+            <span class="location" role="tooltip">3rd floor. Turn right out the lifts, thru the door and turn left</span>
+          </h2>
           <p class="details">Seats 4.</p>
           <div class="slots" id="slots-room-2"></div>
         </section>
